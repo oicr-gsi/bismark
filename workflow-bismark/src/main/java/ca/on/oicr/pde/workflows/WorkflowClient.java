@@ -151,6 +151,7 @@ public class WorkflowClient extends OicrWorkflow {
         command.addArgument("-n " + maxMismatch.toString());
         command.addArgument("-l " + seedLength.toString());
         command.addArgument("-p " + threads.toString()); //l -> seed length; -n --> max no. of mismatched permitted in the seed; p-number of threads to parallelize the job
+        command.addArgument(this.genomeFolder);
         command.addArgument("-b " + sample);
         command.addArgument("-o " + outDir);
         command.addArgument("--temp_dir " + tmpDir);
