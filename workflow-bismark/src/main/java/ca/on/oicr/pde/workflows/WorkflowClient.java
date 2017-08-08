@@ -51,8 +51,6 @@ public class WorkflowClient extends OicrWorkflow {
     private Integer cores;
     private Integer maxMismatch;
 
-    // condition
-    private boolean checkExpectedOutput = true;
 
     private boolean manualOutput;
     private static final Logger logger = Logger.getLogger(WorkflowClient.class.getName());
@@ -93,8 +91,6 @@ public class WorkflowClient extends OicrWorkflow {
             threads = Integer.parseInt(getProperty("no_of_threads"));
             cores = Integer.parseInt(getProperty("no_of_multiprocessing_cores"));
 
-            // condition
-            checkExpectedOutput = Boolean.valueOf(getProperty("check_expected_output"));
 
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -138,11 +134,9 @@ public class WorkflowClient extends OicrWorkflow {
         parentJob = bismark;
 
         // check if the out directory contains the expectedOutputSam file -- can go in decider
-        if (checkExpectedOutput) {
-            Job jobBismarkMethylationExtractor = jobMethylationExtractor(expectedOutputSam, outputDir);
-            parentJob = jobBismarkMethylationExtractor;
-        }
-
+        Job jobBismarkMethylationExtractor = jobMethylationExtractor(expectedOutputSam, outputDir);
+        jobBismarkMethylationExtractor.addParent(parentJob);
+        parentJob = jobBismarkMethylationExtractor;
     }
 
     // create Job function for the bismark alignment
