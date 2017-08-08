@@ -19,7 +19,7 @@
     <url>http://maven.apache.org</url>
 
     <properties>
-        <workflow-name>Sequenza</workflow-name>
+        <workflow-name>bismark</workflow-name>
     </properties>
 
     <repositories>
