@@ -26,6 +26,9 @@ public class WorkflowClient extends OicrWorkflow {
 
     //dir
     private String dataDir, tmpDir;
+    private String expectedOutputSam;
+    private String outputDir;
+    private String sample;
 
     // Input Data
     private String fastqFiles;
@@ -51,11 +54,16 @@ public class WorkflowClient extends OicrWorkflow {
     private Integer cores;
     private Integer maxMismatch;
 
-
     private boolean manualOutput;
     private static final Logger logger = Logger.getLogger(WorkflowClient.class.getName());
     private String queue;
     private Map<String, SqwFile> tempFiles;
+
+    // provision
+    private final static String BAM_METATYPE = "application/bam";
+    private final static String BAI_METATYPE = "application/bam-index";
+    private final static String TXT_GZ_METATYPE = "application/txt-gz";
+    private final static String TXT_METATYPE = "text/plain";
 
     private void init() {
         try {
@@ -91,7 +99,6 @@ public class WorkflowClient extends OicrWorkflow {
             threads = Integer.parseInt(getProperty("no_of_threads"));
             cores = Integer.parseInt(getProperty("no_of_multiprocessing_cores"));
 
-
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -122,25 +129,77 @@ public class WorkflowClient extends OicrWorkflow {
          */
         Job parentJob = null;
         String[] fqFile = fastqFiles.split(",");
-        String outputDir = "output/";
+        this.outputDir = this.dataDir + "output/";
         String[] pathsplit = fqFile[0].split("/");
         Integer n = pathsplit.length;
         String name = pathsplit[n - 1];
         String[] names = name.split("\\.");
-        String sample = names[0];
-        String expectedOutputSam = sample + "_pe.sam";
+        this.sample = names[0];
+        this.expectedOutputSam = this.sample + "_pe.sam";
 
-        Job bismark = runBismarkPreprocess(fqFile, sample, outputDir);
+        Job bismark = runBismarkPreprocess(fqFile);
         parentJob = bismark;
 
         // check if the out directory contains the expectedOutputSam file -- can go in decider
-        Job jobBismarkMethylationExtractor = jobMethylationExtractor(expectedOutputSam, outputDir);
+        Job jobBismarkMethylationExtractor = jobMethylationExtractor();
         jobBismarkMethylationExtractor.addParent(parentJob);
         parentJob = jobBismarkMethylationExtractor;
+
+        // provision output files from BisMarkMethylationExtractor Job
+        SqwFile cpgFile = createOutputFile(this.outputDir + "CpG_context_" + this.sample + "_pe.txt.gz", TXT_GZ_METATYPE, this.manualOutput);
+        cpgFile.getAnnotations().put("CpG context file", "Bismark_methylation_extractor");
+        parentJob.addFile(cpgFile);
+
+        SqwFile nonCpGFile = createOutputFile(this.outputDir + "Non_CpG_context" + this.sample + "_pe.txt.gz", TXT_GZ_METATYPE, this.manualOutput);
+        nonCpGFile.getAnnotations().put("Non-CpG context file", "Bismark_methylation_extractor");
+        parentJob.addFile(nonCpGFile);
+
+        SqwFile splittingReportFile = createOutputFile(this.outputDir + this.sample + "_pe_splitting_report.txt", TXT_METATYPE, this.manualOutput);
+        splittingReportFile.getAnnotations().put("splitting report", "Bismark_methylation_extractor");
+        parentJob.addFile(splittingReportFile);
+
+        SqwFile mBiasFile = createOutputFile(this.outputDir + this.sample + "_pe.M-bias.txt", TXT_METATYPE, this.manualOutput);
+        mBiasFile.getAnnotations().put("M-bias", "Bismark_methylation_extractor");
+        parentJob.addFile(mBiasFile);
+
+        SqwFile bedGraphFile = createOutputFile(this.outputDir + this.sample + "_pe.bedGraph.gz", TXT_GZ_METATYPE, this.manualOutput);
+        bedGraphFile.getAnnotations().put("bedGraph", "Bismark_methylation_extractor");
+        parentJob.addFile(bedGraphFile);
+
+        SqwFile bismarkCovFile = createOutputFile(this.outputDir + this.sample + "_pe.bismark.cov.gz", TXT_GZ_METATYPE, this.manualOutput);
+        bismarkCovFile.getAnnotations().put("coverage report", "Bismark_methylation_extractor");
+        parentJob.addFile(bismarkCovFile);
+
+        SqwFile cpgReport = createOutputFile(outputDir + this.sample + "_pe.CpG_report.txt.gz", TXT_GZ_METATYPE, this.manualOutput);
+        cpgReport.getAnnotations().put("CpG report", "Bismark_methylation_extractor");
+        parentJob.addFile(cpgReport);
+
+        // convert Sam to Bam
+        Job jobCovertSam = jobSamToBam();
+        jobCovertSam.addParent(bismark);
+        //parentJob = jobCovertSam;
+
+        Job jobSortBamFile = jobSortBam();
+        jobSortBamFile.addParent(jobCovertSam);
+        //parentJob = jobSortBamFile;
+
+        Job jobIndexBamFile = jobIndexBam();
+        jobIndexBamFile.addParent(jobSortBamFile);
+        //parentJob = jobIndexBamFile;
+
+        // provision bam outputs
+        SqwFile bamFile = createOutputFile(this.outputDir + this.expectedOutputSam.replace(".sam", ".sorted.bam"), BAM_METATYPE, this.manualOutput);
+        bamFile.getAnnotations().put("segment data from the tool ", "Sequenza ");
+        jobSortBamFile.addFile(bamFile);
+
+        SqwFile baiFile = createOutputFile(this.outputDir + this.expectedOutputSam.replace(".sam", ".sorted.bai"), BAI_METATYPE, this.manualOutput);
+        bamFile.getAnnotations().put("segment data from the tool ", "Sequenza ");
+        jobIndexBamFile.addFile(baiFile);
+
     }
 
     // create Job function for the bismark alignment
-    private Job runBismarkPreprocess(String[] fastqFiles, String sample, String outDir) {
+    private Job runBismarkPreprocess(String[] fastqFiles) {
         String fastq1Path = fastqFiles[0];
         String fastq2Path = fastqFiles[1];
         Job jobBismark = getWorkflow().createBashJob("bismark");
@@ -152,8 +211,8 @@ public class WorkflowClient extends OicrWorkflow {
         command.addArgument("-l " + seedLength.toString());
         command.addArgument("-p " + threads.toString()); //l -> seed length; -n --> max no. of mismatched permitted in the seed; p-number of threads to parallelize the job
         command.addArgument(this.genomeFolder);
-        command.addArgument("-b " + sample);
-        command.addArgument("-o " + outDir);
+        command.addArgument("-b " + this.sample);
+        command.addArgument("-o " + this.outputDir);
         command.addArgument("--temp_dir " + tmpDir);
         command.addArgument("--gzip");
         command.addArgument("-1 " + fastq1Path);
@@ -163,7 +222,7 @@ public class WorkflowClient extends OicrWorkflow {
         return jobBismark;
     }
 
-    private Job jobMethylationExtractor(String samFile, String outDir) {
+    private Job jobMethylationExtractor() {
         // bismark methylation extractor
         Job jobMethExtractor = getWorkflow().createBashJob("methylation_extractor");
         Command cmd = jobMethExtractor.getCommand();
@@ -171,16 +230,51 @@ public class WorkflowClient extends OicrWorkflow {
         cmd.addArgument("-p"); //paired end
         cmd.addArgument("--comprehensive");
         cmd.addArgument("--merge_non_CpG");
-        cmd.addArgument("-o " + outDir);
+        cmd.addArgument("-o " + this.outputDir);
         cmd.addArgument("--genome_folder " + genomeFolder);
         cmd.addArgument("--samtools_path " + samtools);
         cmd.addArgument("--gzip");
         cmd.addArgument("--multicore " + cores.toString()); //no. of parallel instances bismark to run
         cmd.addArgument("--bedGraph");
-        cmd.addArgument("--cytosine_report " + outDir + '/' + samFile);
+        cmd.addArgument("--cytosine_report " + this.outputDir + '/' + this.expectedOutputSam);
         jobMethExtractor.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobMethExtractor.setQueue(getOptionalProperty("queue", ""));
         return jobMethExtractor;
+    }
+
+    private Job jobSamToBam() {
+        // bismark methylation extractor
+        String bamFile = this.expectedOutputSam.replace(".sam", ".bam");
+        Job jobToBam = getWorkflow().createBashJob("methylation_extractor");
+        Command cmd = jobToBam.getCommand();
+        cmd.addArgument(this.samtools + " view -bS " + this.outputDir + this.expectedOutputSam + " > " + bamFile);
+        jobToBam.setMaxMemory(Integer.toString(bismarkMem * 1024));
+        jobToBam.setQueue(getOptionalProperty("queue", ""));
+        return jobToBam;
+    }
+
+    private Job jobSortBam() {
+        // bismark methylation extractor
+        String bamFile = this.expectedOutputSam.replace(".sam", ".bam");
+        Job jobSortBam = getWorkflow().createBashJob("sort_bam");
+        Command cmd = jobSortBam.getCommand();
+        cmd.addArgument(this.samtools + " sort " + this.outputDir + bamFile);
+        cmd.addArgument(bamFile.replace(".bam", ".sorted.bam"));
+        jobSortBam.setMaxMemory(Integer.toString(bismarkMem * 1024));
+        jobSortBam.setQueue(getOptionalProperty("queue", ""));
+        return jobSortBam;
+    }
+
+    private Job jobIndexBam() {
+        // bismark methylation extractor
+        String bamFile = this.expectedOutputSam.replace(".sam", "sort.bam");
+        Job jobToBai = getWorkflow().createBashJob("index_bam");
+        Command cmd = jobToBai.getCommand();
+        cmd.addArgument(this.samtools + " index");
+        cmd.addArgument(this.outputDir + bamFile);
+        jobToBai.setMaxMemory(Integer.toString(bismarkMem * 1024));
+        jobToBai.setQueue(getOptionalProperty("queue", ""));
+        return jobToBai;
     }
 
 }
