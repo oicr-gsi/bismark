@@ -245,9 +245,9 @@ public class WorkflowClient extends OicrWorkflow {
     private Job jobSamToBam() {
         // bismark methylation extractor
         String bamFile = this.expectedOutputSam.replace(".sam", ".bam");
-        Job jobToBam = getWorkflow().createBashJob("methylation_extractor");
+        Job jobToBam = getWorkflow().createBashJob("sam_to_bam");
         Command cmd = jobToBam.getCommand();
-        cmd.addArgument(this.samtools + " view -bS " + this.outputDir + this.expectedOutputSam + " > " + bamFile);
+        cmd.addArgument(this.samtools + " view -bS " + this.outputDir + this.expectedOutputSam + " > " + this.outputDir + bamFile);
         jobToBam.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobToBam.setQueue(getOptionalProperty("queue", ""));
         return jobToBam;
@@ -259,7 +259,7 @@ public class WorkflowClient extends OicrWorkflow {
         Job jobSortBam = getWorkflow().createBashJob("sort_bam");
         Command cmd = jobSortBam.getCommand();
         cmd.addArgument(this.samtools + " sort " + this.outputDir + bamFile);
-        cmd.addArgument(bamFile.replace(".bam", ".sorted.bam"));
+        cmd.addArgument(this.outputDir + bamFile.replace(".bam", ".sorted.bam"));
         jobSortBam.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobSortBam.setQueue(getOptionalProperty("queue", ""));
         return jobSortBam;
