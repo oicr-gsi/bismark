@@ -150,7 +150,7 @@ public class WorkflowClient extends OicrWorkflow {
         cpgFile.getAnnotations().put("CpG context file", "Bismark_methylation_extractor");
         parentJob.addFile(cpgFile);
 
-        SqwFile nonCpGFile = createOutputFile(this.outputDir + "Non_CpG_context" + this.sample + "_pe.txt.gz", TXT_GZ_METATYPE, this.manualOutput);
+        SqwFile nonCpGFile = createOutputFile(this.outputDir + "Non_CpG_context_" + this.sample + "_pe.txt.gz", TXT_GZ_METATYPE, this.manualOutput);
         nonCpGFile.getAnnotations().put("Non-CpG context file", "Bismark_methylation_extractor");
         parentJob.addFile(nonCpGFile);
 
