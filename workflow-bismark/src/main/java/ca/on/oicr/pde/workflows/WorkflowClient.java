@@ -192,7 +192,7 @@ public class WorkflowClient extends OicrWorkflow {
         bamFile.getAnnotations().put("segment data from the tool ", "Sequenza ");
         jobSortBamFile.addFile(bamFile);
 
-        SqwFile baiFile = createOutputFile(this.outputDir + this.expectedOutputSam.replace(".sam", ".sorted.bai"), BAI_METATYPE, this.manualOutput);
+        SqwFile baiFile = createOutputFile(this.outputDir + this.expectedOutputSam.replace(".sam", ".sorted.bam.bai"), BAI_METATYPE, this.manualOutput);
         bamFile.getAnnotations().put("segment data from the tool ", "Sequenza ");
         jobIndexSortedBamFile.addFile(baiFile);
 
