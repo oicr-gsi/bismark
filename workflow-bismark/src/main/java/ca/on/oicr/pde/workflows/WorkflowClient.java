@@ -175,16 +175,20 @@ public class WorkflowClient extends OicrWorkflow {
         parentJob.addFile(cpgReport);
 
         // convert Sam to Bam
+        String convertedBamFile = this.expectedOutputSam.replace(".sam", ".bam");
         Job jobCovertSam = jobSamToBam();
         jobCovertSam.addParent(bismark);
+        // index bam file
+        Job jobIndexBamFile = jobIndexBam(convertedBamFile);
+        jobIndexBamFile.addParent(jobCovertSam);
         //parentJob = jobCovertSam;
 
         Job jobSortBamFile = jobSortBam();
         jobSortBamFile.addParent(jobCovertSam);
         //parentJob = jobSortBamFile;
-
-        Job jobIndexBamFile = jobIndexBam();
-        jobIndexBamFile.addParent(jobSortBamFile);
+        String sortedBamFile = this.expectedOutputSam.replace(".sam", ".sorted.bam");
+        Job jobIndexSortedBamFile = jobIndexBam(sortedBamFile);
+        jobIndexSortedBamFile.addParent(jobSortBamFile);
         //parentJob = jobIndexBamFile;
 
         // provision bam outputs
@@ -265,13 +269,11 @@ public class WorkflowClient extends OicrWorkflow {
         return jobSortBam;
     }
 
-    private Job jobIndexBam() {
+    private Job jobIndexBam(String bamFile) {
         // bismark methylation extractor
-        String bamFile = this.expectedOutputSam.replace(".sam", "sort.bam");
         Job jobToBai = getWorkflow().createBashJob("index_bam");
         Command cmd = jobToBai.getCommand();
-        cmd.addArgument(this.samtools + " index");
-        cmd.addArgument(this.outputDir + bamFile);
+        cmd.addArgument(this.samtools + " index " + this.outputDir + bamFile);
         jobToBai.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobToBai.setQueue(getOptionalProperty("queue", ""));
         return jobToBai;
