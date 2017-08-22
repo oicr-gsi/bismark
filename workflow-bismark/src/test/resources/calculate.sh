@@ -2,10 +2,14 @@
 set -o nounset
 set -o errexit
 set -o pipefail
-set -o noclobber
 
-cd "$1"
+cd $1
 
-find . -name "*.zip" -exec unzip {} \; >/dev/null
-find . -type f -name "*fastqc.html" -printf '%p\t' -exec bash -c 'cat "$0" | sed "s/\(<div id=\"header_filename\">\)[^<]*\(<br\/>\)/\1\2/g" | md5sum | cut -d " " -f 1' {} \;
-find . -type f -not -path "./*.zip" -exec md5sum {} + 
+ls | sed 's/.*\.//' | sort | uniq -c
+qrsh -l h_vmem=8G -cwd -now n "\
+. /oicr/local/Modules/default/init/bash; \
+module load samtools 2>/dev/null; \
+find . -regex '.*\.bam$' \
+       -exec sh -c \" samtools flagstat {} | tr '\n' '\t'; echo \" \; \
+| sort | uniq | tr '\t' '\n'"
+
