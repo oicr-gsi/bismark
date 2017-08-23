@@ -60,6 +60,7 @@ public class WorkflowClient extends OicrWorkflow {
     private Map<String, SqwFile> tempFiles;
 
     // provision
+    private final static String FASTQ_METATYPE = "chemical/seq-na-fastq-gzip";
     private final static String BAM_METATYPE = "application/bam";
     private final static String BAI_METATYPE = "application/bam-index";
     private final static String TXT_GZ_METATYPE = "application/txt-gz";
@@ -116,6 +117,20 @@ public class WorkflowClient extends OicrWorkflow {
             tmpDir += "/";
         }
     }
+    
+    @Override
+    public Map<String, SqwFile> setupFiles() {
+        String[] fqFiles = this.fastqFiles.split(",");
+        SqwFile file0 = this.createFile("R1");
+        file0.setSourcePath(fqFiles[0]);
+        file0.setType(FASTQ_METATYPE);
+        file0.setIsInput(true);
+        SqwFile file1 = this.createFile("R2");
+        file1.setSourcePath(fqFiles[1]);
+        file1.setType(FASTQ_METATYPE);
+        file1.setIsInput(true);
+        return this.getFiles();
+    }
 
     @Override
     public void buildWorkflow() {
@@ -128,7 +143,7 @@ public class WorkflowClient extends OicrWorkflow {
          * methylation extractor to identify methylation sites
          */
         Job parentJob = null;
-        String[] fqFile = fastqFiles.split(",");
+        String[] fqFile = this.fastqFiles.split(",");
         this.outputDir = this.dataDir + "output/";
         String[] pathsplit = fqFile[0].split("/");
         Integer n = pathsplit.length;
@@ -137,7 +152,7 @@ public class WorkflowClient extends OicrWorkflow {
         this.sample = names[0];
         this.expectedOutputSam = this.sample + "_pe.sam";
 
-        Job bismark = runBismarkPreprocess(fqFile);
+        Job bismark = runBismarkPreprocess();
         parentJob = bismark;
 
         // check if the out directory contains the expectedOutputSam file -- can go in decider
@@ -199,9 +214,9 @@ public class WorkflowClient extends OicrWorkflow {
     }
 
     // create Job function for the bismark alignment
-    private Job runBismarkPreprocess(String[] fastqFiles) {
-        String fastq1Path = fastqFiles[0];
-        String fastq2Path = fastqFiles[1];
+    private Job runBismarkPreprocess() {
+        //String fastq1Path = fastqFiles[0];
+        //String fastq2Path = fastqFiles[1];
         Job jobBismark = getWorkflow().createBashJob("bismark");
         Command command = jobBismark.getCommand();
         command.addArgument(bismark);
@@ -215,8 +230,8 @@ public class WorkflowClient extends OicrWorkflow {
         command.addArgument("-o " + this.outputDir);
         command.addArgument("--temp_dir " + tmpDir);
         command.addArgument("--gzip");
-        command.addArgument("-1 " + fastq1Path);
-        command.addArgument("-2 " + fastq2Path);
+        command.addArgument("-1 " + getFiles().get("R1").getProvisionedPath());
+        command.addArgument("-2 " + getFiles().get("R2").getProvisionedPath());
         jobBismark.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobBismark.setQueue(getOptionalProperty("queue", ""));
         return jobBismark;
