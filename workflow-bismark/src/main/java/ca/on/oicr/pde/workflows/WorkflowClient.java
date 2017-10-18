@@ -31,7 +31,8 @@ public class WorkflowClient extends OicrWorkflow {
     private String sample;
 
     // Input Data
-    private String fastqFiles;
+    private String r1FastqFile;
+    private String r2FastqFile;
     private String genomeFolder;
 
     // Output check
@@ -73,7 +74,8 @@ public class WorkflowClient extends OicrWorkflow {
             tmpDir = getProperty("tmp_dir");
 
             // input samples 
-            fastqFiles = getProperty("fastq_files");
+            r1FastqFile = getProperty("r1_fastq_file");
+            r2FastqFile = getProperty("r2_fastq_file");
 
             //samtools
             samtools = getProperty("samtools");
@@ -120,13 +122,14 @@ public class WorkflowClient extends OicrWorkflow {
     
     @Override
     public Map<String, SqwFile> setupFiles() {
-        String[] fqFiles = this.fastqFiles.split(",");
+        String r1FqFile = this.r1FastqFile;
         SqwFile file0 = this.createFile("R1");
-        file0.setSourcePath(fqFiles[0]);
+        file0.setSourcePath(r1FqFile);
         file0.setType(FASTQ_METATYPE);
         file0.setIsInput(true);
+        String r2FqFile = this.r2FastqFile;
         SqwFile file1 = this.createFile("R2");
-        file1.setSourcePath(fqFiles[1]);
+        file1.setSourcePath(r2FqFile);
         file1.setType(FASTQ_METATYPE);
         file1.setIsInput(true);
         return this.getFiles();
@@ -143,9 +146,9 @@ public class WorkflowClient extends OicrWorkflow {
          * methylation extractor to identify methylation sites
          */
         Job parentJob = null;
-        String[] fqFile = this.fastqFiles.split(",");
+        String r1FqFile = this.r1FastqFile;
         this.outputDir = this.dataDir + "output/";
-        String[] pathsplit = fqFile[0].split("/");
+        String[] pathsplit = r1FqFile.split("/");
         Integer n = pathsplit.length;
         String name = pathsplit[n - 1];
         String[] names = name.split("\\.");
