@@ -11,7 +11,7 @@
             "id": "workflow_test_01",
             "parameters": {
                 "r1_fastq_file": "/.mounts/labs/PDE/data/testdata/genomic/fastq/tgl_methseq/TGL02_0004_Bn_P_PE_356_EX.R1.fastq.gz",
-                "r2_fastq_file": ",/.mounts/labs/PDE/data/testdata/genomic/fastq/tgl_methseq/TGL02_0004_Bn_P_PE_356_EX.R2.fastq.gz",
+                "r2_fastq_file": "/.mounts/labs/PDE/data/testdata/genomic/fastq/tgl_methseq/TGL02_0004_Bn_P_PE_356_EX.R2.fastq.gz",
                 "check_expected_output": "true"
             }
         }
