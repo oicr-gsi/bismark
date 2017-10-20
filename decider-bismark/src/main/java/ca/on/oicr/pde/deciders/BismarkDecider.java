@@ -4,6 +4,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import net.sourceforge.seqware.common.hibernate.FindAllTheFiles;
+import net.sourceforge.seqware.common.hibernate.FindAllTheFiles.Header;
 import net.sourceforge.seqware.common.module.FileMetadata;
 import net.sourceforge.seqware.common.module.ReturnValue;
 import net.sourceforge.seqware.common.util.Log;
@@ -15,7 +16,7 @@ import net.sourceforge.seqware.common.util.Log;
 public class BismarkDecider extends OicrDecider {
     private final SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
     private Map<String, BeSmall> fileSwaToSmall;
-
+    
     private final String [][] readMateFlags = {{"_R1_","1_sequence.txt",".1.fastq"},{"_R2_","2_sequence.txt",".2.fastq"}};    
     
     private String numOfThreads = "4";
@@ -37,6 +38,8 @@ public class BismarkDecider extends OicrDecider {
     public BismarkDecider() {
         super();
         fileSwaToSmall = new HashMap<String, BeSmall>();
+        this.setMetaType(Arrays.asList(FASTQ_GZ_METATYPE));
+        this.setHeadersToGroupBy(Arrays.asList(FindAllTheFiles.Header.FILE_SWA));
         parser.acceptsAll(Arrays.asList("ini-file"), "Optional: the location of the INI file.").withRequiredArg();
         parser.accepts("manual-output", "Optional*. Set the manual output "
                 + "either to true or false").withRequiredArg();
@@ -91,13 +94,13 @@ public class BismarkDecider extends OicrDecider {
 
         if (this.options.has("template-type")) {
             if (!options.hasArgument("template-type")) {
-                Log.error("--template-type requires an argument, EX");
+                Log.error("--template-type requires an argument, BS");
                 rv.setExitStatus(ReturnValue.INVALIDARGUMENT);
                 return rv;
             } else {
                 this.templateType = options.valueOf("template-type").toString();
-                if (this.templateType.equals("EX")) {
-                    Log.stderr("NOTE THAT ONLY EX template-type SUPPORTED, WE CANNOT GUARANTEE MEANINGFUL RESULTS WITH OTHER TEMPLATE TYPES");
+                if (!this.templateType.equals("BS")) {
+                    Log.stderr("NOTE THAT ONLY BS template-type SUPPORTED, WE CANNOT GUARANTEE MEANINGFUL RESULTS WITH OTHER TEMPLATE TYPES");
                 }
             }
         }
@@ -184,6 +187,20 @@ public class BismarkDecider extends OicrDecider {
     }
     
     @Override
+    protected boolean checkFileDetails(ReturnValue returnValue, FileMetadata fm) {
+        Log.debug("CHECK FILE DETAILS:" + fm);
+        String currentTtype = returnValue.getAttribute(Header.SAMPLE_TAG_PREFIX.getTitle() + "geo_library_source_template_type");
+        // Filter the data of a different template type if filter is specified
+        if (!this.templateType.equalsIgnoreCase(currentTtype)) {
+            Log.warn("Excluding file with SWID = [" + returnValue.getAttribute(Header.FILE_SWA.getTitle())
+                    + "] due to template type/geo_library_source_template_type = [" + currentTtype + "]");
+            return false;
+        }
+        
+        return super.checkFileDetails(returnValue, fm);
+    }
+    
+    @Override
     protected ReturnValue doFinalCheck(String commaSeparatedFilePaths, String commaSeparatedParentAccessions) {
         String[] filePaths = commaSeparatedFilePaths.split(",");
         if (filePaths.length != 2) {
@@ -219,19 +236,6 @@ public class BismarkDecider extends OicrDecider {
             return small.getGroupByAttribute();
         }
         return attribute;
-    }
-
-    @Override
-    protected boolean checkFileDetails(ReturnValue returnValue, FileMetadata fm) {
-        Log.debug("CHECK FILE DETAILS:" + fm);
-
-        if (this.options.has("template-type")) {
-            if (!returnValue.getAttribute(FindAllTheFiles.Header.SAMPLE_TAG_PREFIX.getTitle() + "geo_library_source_template_type").equals(this.options.valueOf("template-type"))) {
-                return false;
-            }
-        }   
-
-        return super.checkFileDetails(returnValue, fm);
     }
 
     @Override

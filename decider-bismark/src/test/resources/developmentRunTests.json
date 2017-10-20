@@ -1,6 +1,6 @@
 {
     "defaults": {
-        "description": "FastQC decider test",
+        "description": "Bismark decider test",
         "metricsResources": "/expected_output/development/",
         "parameters": {
             "--output-path": "./"
