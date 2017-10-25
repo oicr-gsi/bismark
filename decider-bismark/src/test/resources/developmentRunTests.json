@@ -13,7 +13,7 @@
         {
             "id": "TGL07 sample test",
             "parameters": {
-                "--root-sample-name": "TGL07",
+                "--study-name": "TGL07",
                 "--before-date": "2017-09-30"
             }
         }
