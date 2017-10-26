@@ -16,6 +16,12 @@
                 "--study-name": "TGL07",
                 "--before-date": "2017-09-30"
             }
+        },
+        {
+            "id": "TGL01 study test",
+            "parameters": {
+                "--study-name": "TGL01"
+            }
         }
     ]
 }
