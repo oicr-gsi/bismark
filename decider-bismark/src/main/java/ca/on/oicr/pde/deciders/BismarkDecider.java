@@ -1,5 +1,6 @@
 package ca.on.oicr.pde.deciders;
 
+import com.google.common.collect.Iterables;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -239,71 +240,93 @@ public class BismarkDecider extends OicrDecider {
     }
 
     @Override
-    protected Map<String, String> modifyIniFile(String commaSeparatedFilePaths, String commaSeparatedParentAccessions) {
-        Log.debug("INI FILE:" + commaSeparatedFilePaths);
+    public ReturnValue customizeRun(WorkflowRun run) {
+        ReturnValue rv = super.customizeRun(run);
+        FileAttributes[] fas = run.getFiles();
+//        int[] indexes = {0, 1};
+        Set<String> sampleNames = new HashSet<>();
 
-        String[] filePaths = commaSeparatedFilePaths.split(",");
-        int[] indexes = {0, 1};
-
-        Set fqInputs_end1 = new HashSet();
-        Set fqInputs_end2 = new HashSet();
-        Set[] fqInputFiles = {fqInputs_end1, fqInputs_end2};
-        String fastq_inputs_end_1 = "";
-        String fastq_inputs_end_2 = "";
-        BeSmall currentBs = null;
-        for (String p : filePaths) {
-            for (BeSmall bs : fileSwaToSmall.values()) {
-                if (!bs.getPath().equals(p)) {
-                    continue;
-                }
-
-                for (int i : indexes) {
-                    for (int j = 0; j < this.readMateFlags[i].length; j++) {
-                        if (p.contains(this.readMateFlags[i][j])) {
-                            fqInputFiles[i].add(p);
-                            break;
-                        }
-                    }
-                }
-            currentBs = bs;
+//        Set fqInputs_end1 = new HashSet();
+//        Set fqInputs_end2 = new HashSet();
+//        Set[] fqInputFiles = {fqInputs_end1, fqInputs_end2};
+//        String fastq_inputs_end_1 = "";
+//        String fastq_inputs_end_2 = "";
+//        BeSmall currentBs = null;
+        for (FileAttributes p : fas) {
+            sampleNames.add(getRequiredAttribute(p, FindAllTheFiles.Header.SAMPLE_NAME));
+        }
+        
+        String sampleName = null;
+        if(sampleNames.size() != 1) {
+            abortSchedulingOfCurrentWorkflowRun();
+        } else {
+            sampleName = Iterables.getOnlyElement(sampleNames);
+        }
+        
+//            for (BeSmall bs : fileSwaToSmall.values()) {
+//                if (!bs.getPath().equals(p)) {
+//                    continue;
+//                }
+//
+//                for (int i : indexes) {
+//                    for (int j = 0; j < this.readMateFlags[i].length; j++) {
+//                        if (p.toString().contains(this.readMateFlags[i][j])) {
+//                            fqInputFiles[i].add(p);
+//                            break;
+//                        }
+//                    }
+//                }
+//            currentBs = bs;
+//            }
+//        }
+        // Refuse to continue if we don't have an object with metadta for one of the files
+//        if (null == currentBs) {
+//            Log.error("Was not able to retrieve fastq files for either one or two subsets of paired reads, not scheduling current workflow run");
+//            this.abortSchedulingOfCurrentWorkflowRun();
+//        }
+        String fastq_inputs_end_1 = null;
+        String fastq_inputs_end_2 = null;
+        for (FileAttributes fa : fas) {
+            if (fa.getPath().contains("R1")) {
+                fastq_inputs_end_1 = fa.getPath();
+            } else if (fa.getPath().contains("R2")) {
+                fastq_inputs_end_2 = fa.getPath();
+            } else {
+                abortSchedulingOfCurrentWorkflowRun();
             }
         }
-        // Refuse to continue if we don't have an object with metadta for one of the files
-        if (null == currentBs) {
-            Log.error("Was not able to retrieve fastq files for either one or two subsets of paired reads, not scheduling current workflow run");
-            this.abortSchedulingOfCurrentWorkflowRun();
-        }
-        
-        // Format input strings
-        if (fqInputFiles[0].size() == 0 || fqInputFiles[1].size() == 0) {
-            Log.error("Was not able to retrieve fastq files for either one or two subsets of paired reads, not scheduling current workflow run");
-            this.abortSchedulingOfCurrentWorkflowRun();
-        } else {
-            fastq_inputs_end_1 = _join(",", fqInputFiles[0]);
-            fastq_inputs_end_2 = _join(",", fqInputFiles[1]);
-        }
 
-        Map<String, String> iniFileMap = super.modifyIniFile(commaSeparatedFilePaths, commaSeparatedParentAccessions);
-        iniFileMap.put("r1_fastq_file", fastq_inputs_end_1);
-        iniFileMap.put("r2_fastq_file", fastq_inputs_end_2);
-        iniFileMap.put("check_expected_output", this.expectedOutputSam);
-        iniFileMap.put("max_mismatch_allowed", this.maxMismatch);
-        iniFileMap.put("seed_length", this.seedLength);
-        iniFileMap.put("no_of_threads", this.numOfThreads);
-        iniFileMap.put("no_of_multiprocessing_cores", this.numMultiprocessingCores);
-        iniFileMap.put("bismark_mem", this.bismarkMemory);
-        iniFileMap.put("output_dir", this.output_dir);
-        iniFileMap.put("template_type", this.templateType);
-        iniFileMap.put("output_prefix", this.output_prefix);
-        iniFileMap.put("manual_output", this.manualOutput);
-        iniFileMap.put("tmp_dir", this.tmpDir);
+//        // Format input strings
+//        if (fqInputFiles[0].size() == 0 || fqInputFiles[1].size() == 0) {
+//            Log.error("Was not able to retrieve fastq files for either one or two subsets of paired reads, not scheduling current workflow run");
+//            this.abortSchedulingOfCurrentWorkflowRun();
+//        } else {
+//            fastq_inputs_end_1 = _join(",", fqInputFiles[0]);
+//            fastq_inputs_end_2 = _join(",", fqInputFiles[1]);
+//        }
+
+//        Map<String, String> iniFileMap = super.modifyIniFile(commaSeparatedFilePaths, commaSeparatedParentAccessions);
+        run.addProperty("r1_fastq_file", fastq_inputs_end_1);
+        run.addProperty("r2_fastq_file", fastq_inputs_end_2);
+        run.addProperty("check_expected_output", this.expectedOutputSam);
+        run.addProperty("max_mismatch_allowed", this.maxMismatch);
+        run.addProperty("seed_length", this.seedLength);
+        run.addProperty("no_of_threads", this.numOfThreads);
+        run.addProperty("no_of_multiprocessing_cores", this.numMultiprocessingCores);
+        run.addProperty("bismark_mem", this.bismarkMemory);
+        run.addProperty("output_dir", this.output_dir);
+        run.addProperty("template_type", this.templateType);
+        run.addProperty("output_prefix", this.output_prefix);
+        run.addProperty("manual_output", this.manualOutput);
+        run.addProperty("tmp_dir", this.tmpDir);
+        run.addProperty("output_filename_prefix", sampleName);
         
         if (!this.queue.isEmpty()) {
-            iniFileMap.put("queue", this.queue);
+            run.addProperty("queue", this.queue);
         }
         
 
-        return iniFileMap;
+        return rv;
     }
 
    //Join function

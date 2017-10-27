@@ -11,7 +11,7 @@
     },
     "tests": [
         {
-            "id": "TGL07 sample test",
+            "id": "TGL07 study test",
             "parameters": {
                 "--study-name": "TGL07",
                 "--before-date": "2017-09-30"

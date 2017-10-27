@@ -29,6 +29,7 @@ public class WorkflowClient extends OicrWorkflow {
     private String expectedOutputSam;
     private String outputDir;
     private String sample;
+    private String sampleName;
 
     // Input Data
     private String r1FastqFile;
@@ -76,7 +77,9 @@ public class WorkflowClient extends OicrWorkflow {
             // input samples 
             r1FastqFile = getProperty("r1_fastq_file");
             r2FastqFile = getProperty("r2_fastq_file");
-
+            
+            // output filename prefix ; if "output_filename_prefix exists parse from here
+            sampleName = getProperty("output_filename_prefix");
             //samtools
             samtools = getProperty("samtools");
 
@@ -148,11 +151,16 @@ public class WorkflowClient extends OicrWorkflow {
         Job parentJob = null;
         String r1FqFile = this.r1FastqFile;
         this.outputDir = this.dataDir + "output/";
-        String[] pathsplit = r1FqFile.split("/");
-        Integer n = pathsplit.length;
-        String name = pathsplit[n - 1];
-        String[] names = name.split("\\.");
-        this.sample = names[0];
+        if (this.sampleName != null){
+            String[] pathsplit = r1FqFile.split("/");
+            Integer n = pathsplit.length;
+            String name = pathsplit[n - 1];
+            String[] names = name.split("\\.");
+            this.sample = names[0];
+        } else {
+            this.sample = this.sampleName;
+        }
+//        this.sample = this.sampleName;
         this.expectedOutputSam = this.sample + "_pe.sam";
 
         Job bismark = runBismarkPreprocess();
