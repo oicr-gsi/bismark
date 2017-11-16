@@ -1,0 +1,27 @@
+{
+    "defaults": {
+        "description": "Bismark decider test",
+        "metricsResources": "/expected_output/development/",
+        "parameters": {
+            "--output-path": "./"
+        },
+        "iniExclusions": ["parent-accessions", "workflow_run_accession", "workflow-run-accession",
+            "unique_string", "parent_accessions", "parent_accession", "input_file", "input_files", "workflow_bundle_dir",
+            "output_prefix"]
+    },
+    "tests": [
+        {
+            "id": "TGL07 study test",
+            "parameters": {
+                "--study-name": "TGL07",
+                "--before-date": "2017-09-30"
+            }
+        },
+        {
+            "id": "TGL01 study test",
+            "parameters": {
+                "--study-name": "TGL01"
+            }
+        }
+    ]
+}
