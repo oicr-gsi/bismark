@@ -26,11 +26,7 @@ public class BismarkDecider extends OicrDecider {
     private String numMultiprocessingCores   = "2";
     private String maxMismatch = "1";
     private String queue = "";
-    private String expectedOutputSam = "true";
-    private String output_dir = "seqware-results"; 
-    private String manualOutput = "false";
     private String templateType = "BS";
-    private String output_prefix = "./";
     private String tmpDir = "tmp";
     
     private static final String FASTQ_GZ_METATYPE = "chemical/seq-na-fastq-gzip";
@@ -42,12 +38,6 @@ public class BismarkDecider extends OicrDecider {
         this.setMetaType(Arrays.asList(FASTQ_GZ_METATYPE));
         this.setHeadersToGroupBy(Arrays.asList(FindAllTheFiles.Header.FILE_SWA));
         parser.acceptsAll(Arrays.asList("ini-file"), "Optional: the location of the INI file.").withRequiredArg();
-        parser.accepts("manual-output", "Optional*. Set the manual output "
-                + "either to true or false").withRequiredArg();
-        parser.accepts("output-path", "Optional: the path where the files should be copied to "
-                + "after analysis. Corresponds to output-prefix in INI file. Default: ./").withRequiredArg();
-        parser.accepts("output-folder", "Optional: the name of the folder to put the output into relative to "
-                + "the output-path. Corresponds to output-dir in INI file. Default: seqware-results").withRequiredArg();
         parser.accepts("queue", "Optional: Set the queue (Default: not set)").withRequiredArg();
         parser.accepts("tmp_dir", "Optional: Set the temp dir (Default: tmp)").withRequiredArg();
         //bismark
@@ -100,21 +90,6 @@ public class BismarkDecider extends OicrDecider {
                     Log.stderr("NOTE THAT ONLY BS template-type SUPPORTED, WE CANNOT GUARANTEE MEANINGFUL RESULTS WITH OTHER TEMPLATE TYPES");
                 }
             }
-        }
-
-        if (this.options.has("manual-output")) {
-            this.manualOutput = options.valueOf("manual_output").toString();
-            Log.debug("Setting manual output, default is false and needs to be set only in special cases");
-        }
-        if (this.options.has("output-path")) {
-            this.output_prefix = options.valueOf("output-path").toString();
-            if (!this.output_prefix.endsWith("/")) {
-                this.output_prefix += "/";
-            }
-        }
-
-        if (this.options.has("output-folder")) {
-            this.output_dir = options.valueOf("output-folder").toString();
         }
 
         return rv;
@@ -309,10 +284,7 @@ public class BismarkDecider extends OicrDecider {
         run.addProperty("no_of_threads", this.numOfThreads);
         run.addProperty("no_of_multiprocessing_cores", this.numMultiprocessingCores);
         run.addProperty("bismark_mem", this.bismarkMemory);
-        run.addProperty("output_dir", this.output_dir);
         run.addProperty("template_type", this.templateType);
-        run.addProperty("output_prefix", this.output_prefix);
-        run.addProperty("manual_output", this.manualOutput);
         run.addProperty("tmp_dir", this.tmpDir);
         run.addProperty("output_filename_prefix", sampleName);
         
