@@ -12,7 +12,7 @@ import net.sourceforge.seqware.common.util.Log;
 
 /**
  *
- * @author rtahir
+ * @author prath@oicr.on.ca
  */
 public class BismarkDecider extends OicrDecider {
     private final SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
