@@ -214,15 +214,8 @@ public class BismarkDecider extends OicrDecider {
     public ReturnValue customizeRun(WorkflowRun run) {
         ReturnValue rv = super.customizeRun(run);
         FileAttributes[] fas = run.getFiles();
-//        int[] indexes = {0, 1};
         Set<String> sampleNames = new HashSet<>();
 
-//        Set fqInputs_end1 = new HashSet();
-//        Set fqInputs_end2 = new HashSet();
-//        Set[] fqInputFiles = {fqInputs_end1, fqInputs_end2};
-//        String fastq_inputs_end_1 = "";
-//        String fastq_inputs_end_2 = "";
-//        BeSmall currentBs = null;
         for (FileAttributes p : fas) {
             sampleNames.add(getRequiredAttribute(p, FindAllTheFiles.Header.SAMPLE_NAME));
         }
@@ -233,28 +226,7 @@ public class BismarkDecider extends OicrDecider {
         } else {
             sampleName = Iterables.getOnlyElement(sampleNames);
         }
-        
-//            for (BeSmall bs : fileSwaToSmall.values()) {
-//                if (!bs.getPath().equals(p)) {
-//                    continue;
-//                }
-//
-//                for (int i : indexes) {
-//                    for (int j = 0; j < this.readMateFlags[i].length; j++) {
-//                        if (p.toString().contains(this.readMateFlags[i][j])) {
-//                            fqInputFiles[i].add(p);
-//                            break;
-//                        }
-//                    }
-//                }
-//            currentBs = bs;
-//            }
-//        }
-        // Refuse to continue if we don't have an object with metadta for one of the files
-//        if (null == currentBs) {
-//            Log.error("Was not able to retrieve fastq files for either one or two subsets of paired reads, not scheduling current workflow run");
-//            this.abortSchedulingOfCurrentWorkflowRun();
-//        }
+
         String fastq_inputs_end_1 = null;
         String fastq_inputs_end_2 = null;
         for (FileAttributes fa : fas) {
@@ -267,16 +239,6 @@ public class BismarkDecider extends OicrDecider {
             }
         }
 
-//        // Format input strings
-//        if (fqInputFiles[0].size() == 0 || fqInputFiles[1].size() == 0) {
-//            Log.error("Was not able to retrieve fastq files for either one or two subsets of paired reads, not scheduling current workflow run");
-//            this.abortSchedulingOfCurrentWorkflowRun();
-//        } else {
-//            fastq_inputs_end_1 = _join(",", fqInputFiles[0]);
-//            fastq_inputs_end_2 = _join(",", fqInputFiles[1]);
-//        }
-
-//        Map<String, String> iniFileMap = super.modifyIniFile(commaSeparatedFilePaths, commaSeparatedParentAccessions);
         run.addProperty("r1_fastq_file", fastq_inputs_end_1);
         run.addProperty("r2_fastq_file", fastq_inputs_end_2);
         run.addProperty("max_mismatch_allowed", this.maxMismatch);
