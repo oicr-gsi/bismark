@@ -233,6 +233,7 @@ public class WorkflowClient extends OicrWorkflow {
         command.addArgument(bismark);
         command.addArgument("--path_to_bowtie " + bowtie);
         command.addArgument("--sam");
+        command.addArgument("--rg_tag"); // to add read group to bam
         command.addArgument("-n " + maxMismatch.toString());
         command.addArgument("-l " + seedLength.toString());
         command.addArgument("-p " + threads.toString()); //l -> seed length; -n --> max no. of mismatched permitted in the seed; p-number of threads to parallelize the job

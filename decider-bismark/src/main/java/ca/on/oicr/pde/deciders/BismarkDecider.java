@@ -29,6 +29,17 @@ public class BismarkDecider extends OicrDecider {
     private String templateType = "BS";
     private String tmpDir = "tmp";
     
+    private String iusAccession = "";
+    private String groupId = "";
+    private String runName = "";
+    private String lane = "";
+    private String barcode = "NoIndex";
+    
+     // Read group header (BWA), pulled from file metadata
+    private String rgLibrary = "";
+    private String rgPlatform = "";
+    private String rgPlatformUnit = "";
+    private String rgSample = "";
     private static final String FASTQ_GZ_METATYPE = "chemical/seq-na-fastq-gzip";
   
 
@@ -91,6 +102,7 @@ public class BismarkDecider extends OicrDecider {
                 }
             }
         }
+        
 
         return rv;
     }
@@ -161,15 +173,64 @@ public class BismarkDecider extends OicrDecider {
     @Override
     protected boolean checkFileDetails(ReturnValue returnValue, FileMetadata fm) {
         Log.debug("CHECK FILE DETAILS:" + fm);
-        String currentTtype = returnValue.getAttribute(Header.SAMPLE_TAG_PREFIX.getTitle() + "geo_library_source_template_type");
-        // Filter the data of a different template type if filter is specified
-        if (!this.templateType.equalsIgnoreCase(currentTtype)) {
-            Log.warn("Excluding file with SWID = [" + returnValue.getAttribute(Header.FILE_SWA.getTitle())
-                    + "] due to template type/geo_library_source_template_type = [" + currentTtype + "]");
+         FileAttributes attribs = new FileAttributes(returnValue, returnValue.getFiles().get(0));
+
+        //  Skip if library_source_template_type isn't WG, EX, TS or NN
+        String filePath = fm.getFilePath();
+        String templateType = attribs.getLimsValue(Lims.LIBRARY_TEMPLATE_TYPE);
+        if (!this.templateType.equals(templateType)) {
+            Log.debug("Skipping " + filePath + " due to incompatible library template type " + templateType);
             return false;
         }
-        
+//        String currentTtype = returnValue.getAttribute(Header.SAMPLE_TAG_PREFIX.getTitle() + "geo_library_source_template_type");
+//        // Filter the data of a different template type if filter is specified
+//        if (!this.templateType.equalsIgnoreCase(currentTtype)) {
+//            Log.warn("Excluding file with SWID = [" + returnValue.getAttribute(Header.FILE_SWA.getTitle())
+//                    + "] due to template type/geo_library_source_template_type = [" + currentTtype + "]");
+//            return false;
+//        }
+        this.iusAccession = returnValue.getAttribute(Header.IUS_SWA.getTitle());
+        this.groupId = attribs.getLimsValue(Lims.GROUP_ID);
+        if (groupId == null) {
+            groupId = "";
+        }
+        this.runName = returnValue.getAttribute(Header.SEQUENCER_RUN_NAME.getTitle());
+        this.lane = returnValue.getAttribute(Header.LANE_NUM.getTitle());
+
+        this.barcode = attribs.getBarcode();
+        this.rgLibrary = attribs.getLibrarySample();
+        this.rgPlatform = returnValue.getAttribute("Sequencer Run Platform Name");
+        this.rgSample = getRGSM(attribs);
+        this.rgPlatformUnit = this.runName
+                + "-"
+                + this.barcode
+                + "_"
+                + this.lane;
         return super.checkFileDetails(returnValue, fm);
+    }
+    
+    /**
+     * Constructs a String for use in the SAM read group header SM field
+     *
+     * @param fa metadata for the sample file
+     *
+     * @return a String in the format: {donor}_{tissue origin}_{tissue type}[_group id]
+     */
+    private String getRGSM(FileAttributes fa) {
+        String groupId = fa.getLimsValue(Lims.GROUP_ID);
+
+        StringBuilder sb = new StringBuilder()
+                .append(fa.getDonor())
+                .append("_")
+                .append(fa.getLimsValue(Lims.TISSUE_ORIGIN))
+                .append("_")
+                .append(fa.getLimsValue(Lims.TISSUE_TYPE));
+
+        if (groupId != null) {
+            sb.append("_").append(groupId);
+        }
+
+        return sb.toString();
     }
     
     @Override
@@ -254,7 +315,11 @@ public class BismarkDecider extends OicrDecider {
             run.addProperty("queue", this.queue);
         }
         
-
+        // Read Group Header (added by BWA)
+        run.addProperty("rg_library", this.rgLibrary);
+        run.addProperty("rg_platform", this.rgPlatform);
+        run.addProperty("rg_platform_unit", this.rgPlatformUnit);
+        run.addProperty("rg_sample_name", this.rgSample);
         return rv;
     }
 
