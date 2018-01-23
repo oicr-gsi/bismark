@@ -307,7 +307,7 @@ public class WorkflowClient extends OicrWorkflow {
         cmd.addArgument("--gzip");
         cmd.addArgument("--multicore " + cores.toString()); //no. of parallel instances bismark to run
         cmd.addArgument("--bedGraph");
-        cmd.addArgument("--cytosine_report " + this.outputDir + '/' + dedupBam);
+        cmd.addArgument("--cytosine_report " + this.outputDir + "/" + dedupBam);
         jobMethExtractor.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobMethExtractor.setQueue(getOptionalProperty("queue", ""));
         return jobMethExtractor;
@@ -318,8 +318,8 @@ public class WorkflowClient extends OicrWorkflow {
 //        String bamFile = this.expectedOutputBam;
         Job jobSortBam = getWorkflow().createBashJob("sort_bam_"+txt);
         Command cmd = jobSortBam.getCommand();
-        cmd.addArgument(this.samtools + " sort " + inBam);
-        cmd.addArgument(this.outputDir + inBam.replace(".bam", ".sorted"));
+        cmd.addArgument(this.samtools + " sort " + this.outputDir +inBam);
+        cmd.addArgument(this.outputDir + "/"  + inBam.replace(".bam", ".sorted"));
         jobSortBam.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobSortBam.setQueue(getOptionalProperty("queue", ""));
         return jobSortBam;
@@ -329,7 +329,7 @@ public class WorkflowClient extends OicrWorkflow {
         // bismark methylation extractor
         Job jobToBai = getWorkflow().createBashJob("index_bam_"+txt);
         Command cmd = jobToBai.getCommand();
-        cmd.addArgument(this.samtools + " index " + inBam);
+        cmd.addArgument(this.samtools + " index " + this.outputDir + "/" + inBam);
         jobToBai.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobToBai.setQueue(getOptionalProperty("queue", ""));
         return jobToBai;
