@@ -41,6 +41,7 @@ public class WorkflowClient extends OicrWorkflow {
 
     //Scripts 
     private String bismark;
+    private String bismarkDedup;
     private String bismarkMethylationExtractor;
 
     //Tools
@@ -91,6 +92,7 @@ public class WorkflowClient extends OicrWorkflow {
 
             //bismark utils
             bismark = getProperty("bismark");
+            bismarkDedup=getProperty("bismark_deduplicate");
             bismarkMethylationExtractor = getProperty("bismark_methylation_extractor");
 
             manualOutput = Boolean.parseBoolean(getProperty("manual_output"));
@@ -161,16 +163,69 @@ public class WorkflowClient extends OicrWorkflow {
             this.sample = this.sampleName;
         }
 //        this.sample = this.sampleName;
-        this.expectedOutputBam = this.sample + "_pe.sam";
-
+        this.expectedOutputBam = this.sample + "_pe.bam";
+        String sortedBam = this.expectedOutputBam.replace(".bam", ".sorted.bam");
+        String dedupBam = sortedBam.replace(".bam", ".dedup.bam");
+        
+        // run bismark aligner
         Job bismark = runBismarkPreprocess();
-        parentJob = bismark;
+        parentJob = bismark;     
+        
+        //sort bam
+        Job jobSortBamFile = jobSortBam(this.expectedOutputBam, "bismark_coord");
+        jobSortBamFile.addParent(bismark);
+        parentJob = jobSortBamFile;
+        
+        //index sorted bam
+        Job jobIndexSortedBamFile = jobIndexBam(sortedBam, "bismark_coord");
+        jobIndexSortedBamFile.addParent(jobSortBamFile);
+        parentJob = jobIndexSortedBamFile;
+        
+        // deduplicate bam
+        Job deduplicateBam = deduplicateBismarkBam(sortedBam);
+        deduplicateBam.addParent(jobIndexSortedBamFile);
+        parentJob = deduplicateBam;
+        
+        // sort dedupped bam
+        Job jobSortDedupBamFile = jobSortBam(dedupBam, "bismark_dedup");
+        jobSortDedupBamFile.addParent(deduplicateBam);
+        parentJob = jobSortDedupBamFile;
+        
+        // index dedupped bam
+        Job jobIndexSortDedupBamFile = jobSortBam(dedupBam, "bismark_dedup");
+        jobIndexSortDedupBamFile.addParent(jobSortDedupBamFile);
+        parentJob = jobIndexSortDedupBamFile;
+        
+        // provision bam outputs
+        SqwFile bamFile = createOutputFile(this.outputDir + sortedBam, BAM_METATYPE, this.manualOutput);
+        bamFile.getAnnotations().put("coordinate sorted bam file ", "bismark ");
+        jobSortBamFile.addFile(bamFile);
 
-        // check if the out directory contains the expectedOutputBam file -- can go in decider
-        Job jobBismarkMethylationExtractor = jobMethylationExtractor();
-        jobBismarkMethylationExtractor.addParent(parentJob);
+        SqwFile baiFile = createOutputFile(this.outputDir + sortedBam + ".bai", BAI_METATYPE, this.manualOutput);
+        bamFile.getAnnotations().put("index file of coordinate sorted bam file ", "bismark ");
+        jobIndexSortedBamFile.addFile(baiFile);
+        
+        
+        // provision dedup bam outputs
+        SqwFile dedupBamFile = createOutputFile(this.outputDir + dedupBam, BAM_METATYPE, this.manualOutput);
+        dedupBamFile.getAnnotations().put("coordinate sorted deduplicated bam file ", "bismark ");
+        jobSortDedupBamFile.addFile(dedupBamFile);
+
+        SqwFile dedupBaiFile = createOutputFile(this.outputDir + dedupBam+".bai", BAI_METATYPE, this.manualOutput);
+        dedupBaiFile.getAnnotations().put("index file of coordinate sorted deduplicated bam file ", "bismark ");
+        jobIndexSortDedupBamFile.addFile(dedupBaiFile);
+
+
+        // methylation extractor
+        Job jobBismarkMethylationExtractor = jobMethylationExtractor(dedupBam);
+        jobBismarkMethylationExtractor.addParent(jobSortDedupBamFile);
         parentJob = jobBismarkMethylationExtractor;
-
+        
+        //Provisioning out the bam and report 
+        SqwFile reportFile = createOutputFile(this.outputDir + this.sample + "_PE_report.txt", TXT_METATYPE, this.manualOutput);
+        reportFile.getAnnotations().put("report file", "bismark");
+        parentJob.addFile(reportFile);
+        
         // provision output files from BisMarkMethylationExtractor Job
         SqwFile cpgFile = createOutputFile(this.outputDir + "CpG_context_" + this.sample + "_pe.txt.gz", TXT_GZ_METATYPE, this.manualOutput);
         cpgFile.getAnnotations().put("CpG context file", "Bismark_methylation_extractor");
@@ -199,29 +254,6 @@ public class WorkflowClient extends OicrWorkflow {
         SqwFile cpgReport = createOutputFile(outputDir + this.sample + "_pe.CpG_report.txt.gz", TXT_GZ_METATYPE, this.manualOutput);
         cpgReport.getAnnotations().put("CpG report", "Bismark_methylation_extractor");
         parentJob.addFile(cpgReport);
-
-//        // convert Sam to Bam
-//        Job jobCovertSam = jobSamToBam();
-//        jobCovertSam.addParent(bismark);
-//        //parentJob = jobCovertSam;
-//
-//        Job jobSortBamFile = jobSortBam();
-//        jobSortBamFile.addParent(jobCovertSam);
-        //parentJob = jobSortBamFile;
-        //String sortedBamFile = this.expectedOutputBam.replace(".sam", ".sorted.bam");
-        Job jobIndexSortedBamFile = jobIndexBam();
-        jobIndexSortedBamFile.addParent(parentJob);
-        //parentJob = jobIndexBamFile;
-
-        // provision bam outputs
-        SqwFile bamFile = createOutputFile(this.outputDir + this.expectedOutputBam.replace(".sam", ".sorted.bam"), BAM_METATYPE, this.manualOutput);
-        bamFile.getAnnotations().put("segment data from the tool ", "Sequenza ");
-        parentJob.addFile(bamFile);
-
-        SqwFile baiFile = createOutputFile(this.outputDir + this.expectedOutputBam.replace(".sam", ".sorted.bam.bai"), BAI_METATYPE, this.manualOutput);
-        bamFile.getAnnotations().put("segment data from the tool ", "Sequenza ");
-        jobIndexSortedBamFile.addFile(baiFile);
-
     }
 
     // create Job function for the bismark alignment
@@ -249,9 +281,21 @@ public class WorkflowClient extends OicrWorkflow {
         return jobBismark;
     }
 
-    private Job jobMethylationExtractor() {
+    
+    private Job deduplicateBismarkBam(String sortedBam){
+        Job jobDedupBam = getWorkflow().createBashJob("deduplicate_bismark_bam");
+        Command cmd = jobDedupBam.getCommand();
+        cmd.addArgument(bismarkDedup);
+        cmd.addArgument("-p --bam "+sortedBam);
+        jobDedupBam.setMaxMemory(Integer.toString(bismarkMem * 1024));
+        jobDedupBam.setQueue(getOptionalProperty("queue", ""));
+        return jobDedupBam;
+    }
+    
+    
+    private Job jobMethylationExtractor(String dedupBam) {
         // bismark methylation extractor
-        Job jobMethExtractor = getWorkflow().createBashJob("methylation_extractor");
+        Job jobMethExtractor = getWorkflow().createBashJob("bismark_methylation_extractor");
         Command cmd = jobMethExtractor.getCommand();
         cmd.addArgument(bismarkMethylationExtractor);
         cmd.addArgument("-p"); //paired end
@@ -263,41 +307,29 @@ public class WorkflowClient extends OicrWorkflow {
         cmd.addArgument("--gzip");
         cmd.addArgument("--multicore " + cores.toString()); //no. of parallel instances bismark to run
         cmd.addArgument("--bedGraph");
-        cmd.addArgument("--cytosine_report " + this.outputDir + '/' + this.expectedOutputBam);
+        cmd.addArgument("--cytosine_report " + this.outputDir + '/' + dedupBam);
         jobMethExtractor.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobMethExtractor.setQueue(getOptionalProperty("queue", ""));
         return jobMethExtractor;
     }
 
-//    private Job jobSamToBam() {
-//        // bismark methylation extractor
-//        String bamFile = this.expectedOutputBam.replace(".sam", ".bam");
-//        Job jobToBam = getWorkflow().createBashJob("sam_to_bam");
-//        Command cmd = jobToBam.getCommand();
-//        cmd.addArgument(this.samtools + " view -bS " + this.outputDir + this.expectedOutputBam + " > " + this.outputDir + bamFile);
-//        jobToBam.setMaxMemory(Integer.toString(bismarkMem * 1024));
-//        jobToBam.setQueue(getOptionalProperty("queue", ""));
-//        return jobToBam;
-//    }
-//
-//    private Job jobSortBam() {
-//        // bismark methylation extractor
-//        String bamFile = this.expectedOutputBam.replace(".sam", ".bam");
-//        Job jobSortBam = getWorkflow().createBashJob("sort_bam");
-//        Command cmd = jobSortBam.getCommand();
-//        cmd.addArgument(this.samtools + " sort " + this.outputDir + bamFile);
-//        cmd.addArgument(this.outputDir + bamFile.replace(".bam", ".sorted"));
-//        jobSortBam.setMaxMemory(Integer.toString(bismarkMem * 1024));
-//        jobSortBam.setQueue(getOptionalProperty("queue", ""));
-//        return jobSortBam;
-//    }
-
-    private Job jobIndexBam() {
+    private Job jobSortBam(String inBam, String txt) {
         // bismark methylation extractor
-        Job jobToBai = getWorkflow().createBashJob("index_bam");
+//        String bamFile = this.expectedOutputBam;
+        Job jobSortBam = getWorkflow().createBashJob("sort_bam_"+txt);
+        Command cmd = jobSortBam.getCommand();
+        cmd.addArgument(this.samtools + " sort " + inBam);
+        cmd.addArgument(this.outputDir + inBam.replace(".bam", ".sorted"));
+        jobSortBam.setMaxMemory(Integer.toString(bismarkMem * 1024));
+        jobSortBam.setQueue(getOptionalProperty("queue", ""));
+        return jobSortBam;
+    }
+
+    private Job jobIndexBam(String inBam, String txt) {
+        // bismark methylation extractor
+        Job jobToBai = getWorkflow().createBashJob("index_bam_"+txt);
         Command cmd = jobToBai.getCommand();
-        cmd.addArgument(this.samtools + " index " + this.outputDir + 
-                            this.expectedOutputBam); //.replace(".sam", ".sorted.bam"));
+        cmd.addArgument(this.samtools + " index " + inBam);
         jobToBai.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobToBai.setQueue(getOptionalProperty("queue", ""));
         return jobToBai;
