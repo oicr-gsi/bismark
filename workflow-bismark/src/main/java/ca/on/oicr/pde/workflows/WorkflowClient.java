@@ -203,6 +203,7 @@ public class WorkflowClient extends OicrWorkflow {
         //String fastq2Path = fastqFiles[1];
         Job jobBismark = getWorkflow().createBashJob("bismark");
         Command command = jobBismark.getCommand();
+        command.addArgument("export PATH="+ this.samtools+":$PATH;");
         command.addArgument(bismark);
         command.addArgument("--path_to_bowtie " + bowtie);
         command.addArgument("--bam");
