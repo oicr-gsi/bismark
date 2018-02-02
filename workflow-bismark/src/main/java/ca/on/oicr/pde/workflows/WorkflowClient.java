@@ -192,7 +192,7 @@ public class WorkflowClient extends OicrWorkflow {
         parentJob = bamIndex;
         
         // provision bai file
-        SqwFile baiFile = createOutputFile(this.outputDir + this.expectedOutputBam.replace("bam", "bai.bam"), BAI_METATYPE, this.manualOutput);
+        SqwFile baiFile = createOutputFile(this.outputDir + this.expectedOutputBam.replace("bam", "bam.bai"), BAI_METATYPE, this.manualOutput);
         baiFile.getAnnotations().put("deduplicated bam file ", "bismark ");
         parentJob.addFile(baiFile);
     }
