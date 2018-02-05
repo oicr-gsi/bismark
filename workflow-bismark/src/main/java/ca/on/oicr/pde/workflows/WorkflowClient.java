@@ -228,7 +228,7 @@ public class WorkflowClient extends OicrWorkflow {
     private Job Index(){
         Job jobBamIndex = getWorkflow().createBashJob("bam_index");
         Command cmd = jobBamIndex.getCommand();
-        cmd.addArgument(this.samtools + " index");
+        cmd.addArgument(this.samtools + "/samtools index");
         cmd.addArgument(this.outputDir + this.expectedOutputBam);
         jobBamIndex.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobBamIndex.setQueue(getOptionalProperty("queue", ""));
