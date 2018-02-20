@@ -59,11 +59,10 @@ public class WorkflowClient extends OicrWorkflow {
     private static final Logger logger = Logger.getLogger(WorkflowClient.class.getName());
     private String queue;
     private Map<String, SqwFile> tempFiles;
-    
+
     // read group
     String RGID;
     String RGSM;
-
 
     // provision
     private final static String FASTQ_METATYPE = "chemical/seq-na-fastq-gzip";
@@ -80,7 +79,7 @@ public class WorkflowClient extends OicrWorkflow {
             // input samples 
             r1FastqFile = getProperty("r1_fastq_file");
             r2FastqFile = getProperty("r2_fastq_file");
-            
+
             // output filename prefix ; if "output_filename_prefix exists parse from here
             sampleName = getProperty("output_filename_prefix");
             //samtools
@@ -106,12 +105,16 @@ public class WorkflowClient extends OicrWorkflow {
             seedLength = Integer.parseInt(getProperty("seed_length"));
             threads = Integer.parseInt(getProperty("no_of_threads"));
             cores = Integer.parseInt(getProperty("no_of_multiprocessing_cores"));
-            
+
             // read group information
             RGID = getProperty("rg_platform_unit");
-            if (RGID.contains(" ")) {RGID = "\"" + RGID + "\"";}
+            if (RGID.contains(" ")) {
+                RGID = "\"" + RGID + "\"";
+            }
             RGSM = getProperty("rg_sample_name");
-            if (RGSM.contains(" ")) {RGSM = "\"" + RGSM + "\"";}
+            if (RGSM.contains(" ")) {
+                RGSM = "\"" + RGSM + "\"";
+            }
 
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -130,7 +133,7 @@ public class WorkflowClient extends OicrWorkflow {
             tmpDir += "/";
         }
     }
-    
+
     @Override
     public Map<String, SqwFile> setupFiles() {
         String r1FqFile = this.r1FastqFile;
@@ -159,7 +162,7 @@ public class WorkflowClient extends OicrWorkflow {
         Job parentJob = null;
         String r1FqFile = this.r1FastqFile;
         this.outputDir = this.dataDir + "output/";
-        if (this.sampleName != null){
+        if (this.sampleName != null) {
             String[] pathsplit = r1FqFile.split("/");
             Integer n = pathsplit.length;
             String name = pathsplit[n - 1];
@@ -170,29 +173,33 @@ public class WorkflowClient extends OicrWorkflow {
         }
 //        this.sample = this.sampleName;
         this.expectedOutputBam = this.sample + "_pe.bam";
-        
+
         // run bismark aligner
         Job bismark = bismarkAligner();
-        parentJob = bismark;     
-        
-        
-        // provision bam outputs
-        SqwFile bamFile = createOutputFile(this.outputDir + this.expectedOutputBam, BAM_METATYPE, this.manualOutput);
-        bamFile.getAnnotations().put("deduplicated bam file ", "bismark ");
-        parentJob.addFile(bamFile);
-        
+        parentJob = bismark;
+
         //Provisioning out the bam and report 
         SqwFile reportFile = createOutputFile(this.outputDir + this.sample + "_PE_report.txt", TXT_METATYPE, this.manualOutput);
         reportFile.getAnnotations().put("report file", "bismark");
         parentJob.addFile(reportFile);
-        
+
+        //cooordinate sort bam file
+        Job bamSort = samtoolsSort();
+        bamSort.addParent(parentJob);
+        parentJob = bamSort;
+
         // index bam
-        Job bamIndex = Index();
+        Job bamIndex = samtoolsIndex();
         bamIndex.addParent(parentJob);
         parentJob = bamIndex;
-        
+
+        // provision bam outputs
+        SqwFile bamFile = createOutputFile(this.outputDir + this.expectedOutputBam.replace(".bam", ".sorted.bam"), BAM_METATYPE, this.manualOutput);
+        bamFile.getAnnotations().put("deduplicated bam file ", "bismark ");
+        parentJob.addFile(bamFile);
+
         // provision bai file
-        SqwFile baiFile = createOutputFile(this.outputDir + this.expectedOutputBam.replace("bam", "bam.bai"), BAI_METATYPE, this.manualOutput);
+        SqwFile baiFile = createOutputFile(this.outputDir + this.expectedOutputBam.replace(".bam", ".sorted.bam.bai"), BAI_METATYPE, this.manualOutput);
         baiFile.getAnnotations().put("deduplicated bam file ", "bismark ");
         parentJob.addFile(baiFile);
     }
@@ -203,13 +210,13 @@ public class WorkflowClient extends OicrWorkflow {
         //String fastq2Path = fastqFiles[1];
         Job jobBismark = getWorkflow().createBashJob("bismark");
         Command command = jobBismark.getCommand();
-        command.addArgument("export PATH="+ this.samtools+":$PATH;");
+        command.addArgument("export PATH=" + this.samtools + ":$PATH;");
         command.addArgument(bismark);
         command.addArgument("--path_to_bowtie " + bowtie);
         command.addArgument("--bam");
         command.addArgument("--rg_tag"); // to add read group to bam
-        command.addArgument("--rg_sample "+RGSM);
-        command.addArgument("--rg_id "+RGID);
+        command.addArgument("--rg_sample " + RGSM);
+        command.addArgument("--rg_id " + RGID);
         command.addArgument("-n " + maxMismatch.toString());
         command.addArgument("-l " + seedLength.toString());
         command.addArgument("-p " + threads.toString()); //l -> seed length; -n --> max no. of mismatched permitted in the seed; p-number of threads to parallelize the job
@@ -224,15 +231,30 @@ public class WorkflowClient extends OicrWorkflow {
         jobBismark.setQueue(getOptionalProperty("queue", ""));
         return jobBismark;
     }
-    
-    private Job Index(){
+
+    private Job samtoolsSort() {
+        // sort bamFile
+        Job jobSortBam = getWorkflow().createBashJob("sort_bam");
+        Command cmd = jobSortBam.getCommand();
+        cmd.addArgument("export PATH=" + this.samtools + ":$PATH;");
+        cmd.addArgument(this.samtools + "/samtools sort");
+        cmd.addArgument("-o " + this.expectedOutputBam.replace(".bam", ".sorted"));
+        cmd.addArgument("-O bam");
+        cmd.addArgument("-T " + this.tmpDir + "/" + this.sampleName + "_tmp");
+        cmd.addArgument(this.expectedOutputBam);
+        jobSortBam.setMaxMemory(Integer.toString(bismarkMem * 1024));
+        jobSortBam.setQueue(getOptionalProperty("queue", ""));
+        return jobSortBam;
+    }
+
+    private Job samtoolsIndex() {
         Job jobBamIndex = getWorkflow().createBashJob("bam_index");
         Command cmd = jobBamIndex.getCommand();
         cmd.addArgument(this.samtools + "/samtools index");
-        cmd.addArgument(this.outputDir + this.expectedOutputBam);
+        cmd.addArgument(this.outputDir + this.expectedOutputBam.replace(".bam", ".sorted.bam"));
         jobBamIndex.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobBamIndex.setQueue(getOptionalProperty("queue", ""));
         return jobBamIndex;
     }
- 
+
 }
