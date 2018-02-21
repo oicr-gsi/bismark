@@ -173,6 +173,8 @@ public class WorkflowClient extends OicrWorkflow {
         }
 //        this.sample = this.sampleName;
         this.expectedOutputBam = this.sample + "_pe.bam";
+        String inBam = this.outputDir + this.expectedOutputBam;
+        String outBam = this.outputDir + this.expectedOutputBam.replace(".bam", ".sorted.bam");
 
         // run bismark aligner
         Job bismark = bismarkAligner();
@@ -184,12 +186,12 @@ public class WorkflowClient extends OicrWorkflow {
         parentJob.addFile(reportFile);
 
         //cooordinate sort bam file
-        Job bamSort = samtoolsSort();
+        Job bamSort = samtoolsSort(inBam, outBam);
         bamSort.addParent(parentJob);
         parentJob = bamSort;
 
         // index bam
-        Job bamIndex = samtoolsIndex();
+        Job bamIndex = samtoolsIndex(outBam);
         bamIndex.addParent(parentJob);
         parentJob = bamIndex;
 
@@ -232,26 +234,26 @@ public class WorkflowClient extends OicrWorkflow {
         return jobBismark;
     }
 
-    private Job samtoolsSort() {
+    private Job samtoolsSort(String inBam, String outBam) {
         // sort bamFile
         Job jobSortBam = getWorkflow().createBashJob("sort_bam");
         Command cmd = jobSortBam.getCommand();
         cmd.addArgument("export PATH=" + this.samtools + ":$PATH;");
         cmd.addArgument(this.samtools + "/samtools sort");
-        cmd.addArgument("-o " + this.expectedOutputBam.replace(".bam", ".sorted"));
+        cmd.addArgument("-o " + inBam);
         cmd.addArgument("-O bam");
         cmd.addArgument("-T " + this.tmpDir + "/" + this.sampleName + "_tmp");
-        cmd.addArgument(this.expectedOutputBam);
+        cmd.addArgument(outBam);
         jobSortBam.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobSortBam.setQueue(getOptionalProperty("queue", ""));
         return jobSortBam;
     }
 
-    private Job samtoolsIndex() {
+    private Job samtoolsIndex(String outBam) {
         Job jobBamIndex = getWorkflow().createBashJob("bam_index");
         Command cmd = jobBamIndex.getCommand();
         cmd.addArgument(this.samtools + "/samtools index");
-        cmd.addArgument(this.outputDir + this.expectedOutputBam.replace(".bam", ".sorted.bam"));
+        cmd.addArgument(this.outputDir + outBam);
         jobBamIndex.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobBamIndex.setQueue(getOptionalProperty("queue", ""));
         return jobBamIndex;
