@@ -315,7 +315,7 @@ public class BismarkDecider extends OicrDecider {
             run.addProperty("queue", this.queue);
         }
         
-        // Read Group Header (added by BWA)
+        // Read Group Header
         run.addProperty("rg_library", this.rgLibrary);
         run.addProperty("rg_platform", this.rgPlatform);
         run.addProperty("rg_platform_unit", this.rgPlatformUnit);

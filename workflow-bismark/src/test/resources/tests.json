@@ -15,7 +15,9 @@
                 "check_expected_output": "true",
                 "output_filename_prefix": "TGL02_0004_Bn_P_PE_356_EX",
                 "rg_platform_unit": "Illumina",
-                "rg_sample_name": "TGL02_0004_Bn_P_PE_356_EX"
+                "rg_sample_name": "TGL02_0004_Bn_P_PE_356_EX",
+                "rg_platform": "Illumina_Methylation_EPIC",
+                "rg_library": "LIB11656"
             }
         }
     ]

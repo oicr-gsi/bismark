@@ -216,7 +216,7 @@ public class WorkflowClient extends OicrWorkflow {
         command.addArgument(bismark);
         command.addArgument("--path_to_bowtie " + bowtie);
         command.addArgument("--bam");
-        command.addArgument("--rg_tag"); // to add read group to bam
+        command.addArgument("--rg_tag "+ getReadGroupHeader()); // to add read group to bam
         command.addArgument("--rg_sample " + RGSM);
         command.addArgument("--rg_id " + RGID);
         command.addArgument("-n " + maxMismatch.toString());
@@ -258,5 +258,23 @@ public class WorkflowClient extends OicrWorkflow {
         jobBamIndex.setQueue(getOptionalProperty("queue", ""));
         return jobBamIndex;
     }
+    private String getReadGroupHeader() {
+		String unit = getProperty("rg_platform_unit");
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append("'@RG\\tID:");
+		sb.append(unit);
+		sb.append("\\tLB:");
+		sb.append(getProperty("rg_library"));
+		sb.append("\\tPL:");
+		sb.append(getProperty("rg_platform"));
+		sb.append("\\tPU:");
+		sb.append(unit);
+		sb.append("\\tSM:");
+		sb.append(getProperty("rg_sample_name"));
+		sb.append("'");
+		
+		return sb.toString();
+	}
 
 }
