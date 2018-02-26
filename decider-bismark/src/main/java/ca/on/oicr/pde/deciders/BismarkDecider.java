@@ -362,7 +362,7 @@ public class BismarkDecider extends OicrDecider {
     private String RGLB;
     private String RGPU;
     private String RGSM;
-    //private String RGPL;
+    private String RGPL;
     private String ius_accession;
     private String sequencer_run_name;
     private String barcode;
