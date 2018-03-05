@@ -216,7 +216,7 @@ public class WorkflowClient extends OicrWorkflow {
         command.addArgument(bismark);
         command.addArgument("--path_to_bowtie " + bowtie);
         command.addArgument("--bam");
-        command.addArgument("--rg_tag "+ getReadGroupHeader()); // to add read group to bam
+        command.addArgument("--rg_tag"); // to add read group to bam
         command.addArgument("--rg_sample " + RGSM);
         command.addArgument("--rg_id " + RGID);
         command.addArgument("-n " + maxMismatch.toString());
