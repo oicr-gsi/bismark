@@ -162,7 +162,7 @@ public class WorkflowClient extends OicrWorkflow {
         Job parentJob = null;
         String r1FqFile = this.r1FastqFile;
         this.outputDir = this.dataDir + "output/";
-        if (this.sampleName != null) {
+        if (this.sampleName != null || this.sampleName != "test") {
             String[] pathsplit = r1FqFile.split("/");
             Integer n = pathsplit.length;
             String name = pathsplit[n - 1];
@@ -240,10 +240,12 @@ public class WorkflowClient extends OicrWorkflow {
         Command cmd = jobSortBam.getCommand();
         cmd.addArgument("export PATH=" + this.samtools + ":$PATH;");
         cmd.addArgument(this.samtools + "/samtools sort");
-        cmd.addArgument("-o " + outBam);
-        cmd.addArgument("-O bam");
-        cmd.addArgument("-T " + this.sampleName + "_tmp");
+//        cmd.addArgument("-o " + outBam);
+//        cmd.addArgument("-O bam");
+//        cmd.addArgument("-T " + this.sampleName + "_tmp");
         cmd.addArgument(inBam);
+        cmd.addArgument(">");
+        cmd.addArgument(outBam);
         jobSortBam.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobSortBam.setQueue(getOptionalProperty("queue", ""));
         return jobSortBam;
