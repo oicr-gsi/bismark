@@ -174,7 +174,7 @@ public class WorkflowClient extends OicrWorkflow {
 //        this.sample = this.sampleName;
         this.expectedOutputBam = this.sample + "_pe.bam";
         String inBam = this.outputDir + this.expectedOutputBam;
-        String outBam = this.outputDir + this.expectedOutputBam.replace(".bam", ".sorted.bam");
+        String outBam = this.outputDir + this.expectedOutputBam.replace(".bam", ".sorted");
 
         // run bismark aligner
         Job bismark = bismarkAligner();
