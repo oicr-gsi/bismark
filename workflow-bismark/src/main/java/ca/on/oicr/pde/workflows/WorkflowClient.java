@@ -244,7 +244,7 @@ public class WorkflowClient extends OicrWorkflow {
 //        cmd.addArgument("-O bam");
 //        cmd.addArgument("-T " + this.sampleName + "_tmp");
         cmd.addArgument(inBam);
-        cmd.addArgument(">");
+//        cmd.addArgument(">");
         cmd.addArgument(outBam);
         jobSortBam.setMaxMemory(Integer.toString(bismarkMem * 1024));
         jobSortBam.setQueue(getOptionalProperty("queue", ""));
