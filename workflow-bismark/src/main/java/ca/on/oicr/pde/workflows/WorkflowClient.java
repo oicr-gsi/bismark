@@ -191,7 +191,7 @@ public class WorkflowClient extends OicrWorkflow {
         parentJob = bamSort;
 
         // index bam
-        Job bamIndex = samtoolsIndex(outBam);
+        Job bamIndex = samtoolsIndex(outBam+".bam");
         bamIndex.addParent(parentJob);
         parentJob = bamIndex;
 
