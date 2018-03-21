@@ -18,7 +18,7 @@
     <name>decider-bismark</name>
 
     <properties>
-        <workflow-version>1.0</workflow-version>
+        <workflow-version>1.0.1</workflow-version>
         <main-class>ca.on.oicr.pde.deciders.BismarkDecider</main-class>
     </properties>
     

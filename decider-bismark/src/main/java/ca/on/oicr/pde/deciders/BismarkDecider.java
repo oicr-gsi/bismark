@@ -12,7 +12,7 @@ import net.sourceforge.seqware.common.util.Log;
 
 /**
  *
- * @author rtahir
+ * @author prath@oicr.on.ca
  */
 public class BismarkDecider extends OicrDecider {
     private final SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S");
@@ -26,13 +26,20 @@ public class BismarkDecider extends OicrDecider {
     private String numMultiprocessingCores   = "2";
     private String maxMismatch = "1";
     private String queue = "";
-    private String expectedOutputSam = "true";
-    private String output_dir = "seqware-results"; 
-    private String manualOutput = "false";
     private String templateType = "BS";
-    private String output_prefix = "./";
     private String tmpDir = "tmp";
     
+    private String iusAccession = "";
+    private String groupId = "";
+    private String runName = "";
+    private String lane = "";
+    private String barcode = "NoIndex";
+    
+     // Read group header (BWA), pulled from file metadata
+    private String rgLibrary = "";
+    private String rgPlatform = "";
+    private String rgPlatformUnit = "";
+    private String rgSample = "";
     private static final String FASTQ_GZ_METATYPE = "chemical/seq-na-fastq-gzip";
   
 
@@ -42,12 +49,6 @@ public class BismarkDecider extends OicrDecider {
         this.setMetaType(Arrays.asList(FASTQ_GZ_METATYPE));
         this.setHeadersToGroupBy(Arrays.asList(FindAllTheFiles.Header.FILE_SWA));
         parser.acceptsAll(Arrays.asList("ini-file"), "Optional: the location of the INI file.").withRequiredArg();
-        parser.accepts("manual-output", "Optional*. Set the manual output "
-                + "either to true or false").withRequiredArg();
-        parser.accepts("output-path", "Optional: the path where the files should be copied to "
-                + "after analysis. Corresponds to output-prefix in INI file. Default: ./").withRequiredArg();
-        parser.accepts("output-folder", "Optional: the name of the folder to put the output into relative to "
-                + "the output-path. Corresponds to output-dir in INI file. Default: seqware-results").withRequiredArg();
         parser.accepts("queue", "Optional: Set the queue (Default: not set)").withRequiredArg();
         parser.accepts("tmp_dir", "Optional: Set the temp dir (Default: tmp)").withRequiredArg();
         //bismark
@@ -101,21 +102,7 @@ public class BismarkDecider extends OicrDecider {
                 }
             }
         }
-
-        if (this.options.has("manual-output")) {
-            this.manualOutput = options.valueOf("manual_output").toString();
-            Log.debug("Setting manual output, default is false and needs to be set only in special cases");
-        }
-        if (this.options.has("output-path")) {
-            this.output_prefix = options.valueOf("output-path").toString();
-            if (!this.output_prefix.endsWith("/")) {
-                this.output_prefix += "/";
-            }
-        }
-
-        if (this.options.has("output-folder")) {
-            this.output_dir = options.valueOf("output-folder").toString();
-        }
+        
 
         return rv;
     }
@@ -186,15 +173,64 @@ public class BismarkDecider extends OicrDecider {
     @Override
     protected boolean checkFileDetails(ReturnValue returnValue, FileMetadata fm) {
         Log.debug("CHECK FILE DETAILS:" + fm);
-        String currentTtype = returnValue.getAttribute(Header.SAMPLE_TAG_PREFIX.getTitle() + "geo_library_source_template_type");
-        // Filter the data of a different template type if filter is specified
-        if (!this.templateType.equalsIgnoreCase(currentTtype)) {
-            Log.warn("Excluding file with SWID = [" + returnValue.getAttribute(Header.FILE_SWA.getTitle())
-                    + "] due to template type/geo_library_source_template_type = [" + currentTtype + "]");
+         FileAttributes attribs = new FileAttributes(returnValue, returnValue.getFiles().get(0));
+
+        //  Skip if library_source_template_type isn't WG, EX, TS or NN
+        String filePath = fm.getFilePath();
+        String templateType = attribs.getLimsValue(Lims.LIBRARY_TEMPLATE_TYPE);
+        if (!this.templateType.equals(templateType)) {
+            Log.debug("Skipping " + filePath + " due to incompatible library template type " + templateType);
             return false;
         }
-        
+//        String currentTtype = returnValue.getAttribute(Header.SAMPLE_TAG_PREFIX.getTitle() + "geo_library_source_template_type");
+//        // Filter the data of a different template type if filter is specified
+//        if (!this.templateType.equalsIgnoreCase(currentTtype)) {
+//            Log.warn("Excluding file with SWID = [" + returnValue.getAttribute(Header.FILE_SWA.getTitle())
+//                    + "] due to template type/geo_library_source_template_type = [" + currentTtype + "]");
+//            return false;
+//        }
+        this.iusAccession = returnValue.getAttribute(Header.IUS_SWA.getTitle());
+        this.groupId = attribs.getLimsValue(Lims.GROUP_ID);
+        if (groupId == null) {
+            groupId = "";
+        }
+        this.runName = returnValue.getAttribute(Header.SEQUENCER_RUN_NAME.getTitle());
+        this.lane = returnValue.getAttribute(Header.LANE_NUM.getTitle());
+
+        this.barcode = attribs.getBarcode();
+        this.rgLibrary = attribs.getLibrarySample();
+        this.rgPlatform = returnValue.getAttribute("Sequencer Run Platform Name");
+        this.rgSample = getRGSM(attribs);
+        this.rgPlatformUnit = this.runName
+                + "-"
+                + this.barcode
+                + "_"
+                + this.lane;
         return super.checkFileDetails(returnValue, fm);
+    }
+    
+    /**
+     * Constructs a String for use in the SAM read group header SM field
+     *
+     * @param fa metadata for the sample file
+     *
+     * @return a String in the format: {donor}_{tissue origin}_{tissue type}[_group id]
+     */
+    private String getRGSM(FileAttributes fa) {
+        String groupId = fa.getLimsValue(Lims.GROUP_ID);
+
+        StringBuilder sb = new StringBuilder()
+                .append(fa.getDonor())
+                .append("_")
+                .append(fa.getLimsValue(Lims.TISSUE_ORIGIN))
+                .append("_")
+                .append(fa.getLimsValue(Lims.TISSUE_TYPE));
+
+        if (groupId != null) {
+            sb.append("_").append(groupId);
+        }
+
+        return sb.toString();
     }
     
     @Override
@@ -239,15 +275,8 @@ public class BismarkDecider extends OicrDecider {
     public ReturnValue customizeRun(WorkflowRun run) {
         ReturnValue rv = super.customizeRun(run);
         FileAttributes[] fas = run.getFiles();
-//        int[] indexes = {0, 1};
         Set<String> sampleNames = new HashSet<>();
 
-//        Set fqInputs_end1 = new HashSet();
-//        Set fqInputs_end2 = new HashSet();
-//        Set[] fqInputFiles = {fqInputs_end1, fqInputs_end2};
-//        String fastq_inputs_end_1 = "";
-//        String fastq_inputs_end_2 = "";
-//        BeSmall currentBs = null;
         for (FileAttributes p : fas) {
             sampleNames.add(getRequiredAttribute(p, FindAllTheFiles.Header.SAMPLE_NAME));
         }
@@ -258,28 +287,7 @@ public class BismarkDecider extends OicrDecider {
         } else {
             sampleName = Iterables.getOnlyElement(sampleNames);
         }
-        
-//            for (BeSmall bs : fileSwaToSmall.values()) {
-//                if (!bs.getPath().equals(p)) {
-//                    continue;
-//                }
-//
-//                for (int i : indexes) {
-//                    for (int j = 0; j < this.readMateFlags[i].length; j++) {
-//                        if (p.toString().contains(this.readMateFlags[i][j])) {
-//                            fqInputFiles[i].add(p);
-//                            break;
-//                        }
-//                    }
-//                }
-//            currentBs = bs;
-//            }
-//        }
-        // Refuse to continue if we don't have an object with metadta for one of the files
-//        if (null == currentBs) {
-//            Log.error("Was not able to retrieve fastq files for either one or two subsets of paired reads, not scheduling current workflow run");
-//            this.abortSchedulingOfCurrentWorkflowRun();
-//        }
+
         String fastq_inputs_end_1 = null;
         String fastq_inputs_end_2 = null;
         for (FileAttributes fa : fas) {
@@ -292,16 +300,6 @@ public class BismarkDecider extends OicrDecider {
             }
         }
 
-//        // Format input strings
-//        if (fqInputFiles[0].size() == 0 || fqInputFiles[1].size() == 0) {
-//            Log.error("Was not able to retrieve fastq files for either one or two subsets of paired reads, not scheduling current workflow run");
-//            this.abortSchedulingOfCurrentWorkflowRun();
-//        } else {
-//            fastq_inputs_end_1 = _join(",", fqInputFiles[0]);
-//            fastq_inputs_end_2 = _join(",", fqInputFiles[1]);
-//        }
-
-//        Map<String, String> iniFileMap = super.modifyIniFile(commaSeparatedFilePaths, commaSeparatedParentAccessions);
         run.addProperty("r1_fastq_file", fastq_inputs_end_1);
         run.addProperty("r2_fastq_file", fastq_inputs_end_2);
         run.addProperty("max_mismatch_allowed", this.maxMismatch);
@@ -309,10 +307,7 @@ public class BismarkDecider extends OicrDecider {
         run.addProperty("no_of_threads", this.numOfThreads);
         run.addProperty("no_of_multiprocessing_cores", this.numMultiprocessingCores);
         run.addProperty("bismark_mem", this.bismarkMemory);
-        run.addProperty("output_dir", this.output_dir);
         run.addProperty("template_type", this.templateType);
-        run.addProperty("output_prefix", this.output_prefix);
-        run.addProperty("manual_output", this.manualOutput);
         run.addProperty("tmp_dir", this.tmpDir);
         run.addProperty("output_filename_prefix", sampleName);
         
@@ -320,7 +315,11 @@ public class BismarkDecider extends OicrDecider {
             run.addProperty("queue", this.queue);
         }
         
-
+        // Read Group Header
+        run.addProperty("rg_library", this.rgLibrary);
+        run.addProperty("rg_platform", this.rgPlatform);
+        run.addProperty("rg_platform_unit", this.rgPlatformUnit);
+        run.addProperty("rg_sample_name", this.rgSample);
         return rv;
     }
 
@@ -363,7 +362,7 @@ public class BismarkDecider extends OicrDecider {
     private String RGLB;
     private String RGPU;
     private String RGSM;
-    //private String RGPL;
+    private String RGPL;
     private String ius_accession;
     private String sequencer_run_name;
     private String barcode;
