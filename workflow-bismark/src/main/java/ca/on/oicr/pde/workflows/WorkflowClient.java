@@ -182,7 +182,7 @@ public class WorkflowClient extends OicrWorkflow {
 
         //Provisioning out the bam and report 
         SqwFile reportFile = createOutputFile(this.outputDir + this.sample + "_PE_report.txt", TXT_METATYPE, this.manualOutput);
-        reportFile.getAnnotations().put("report file", "bismark");
+        reportFile.getAnnotations().put("bismark_report", "bismark");
         parentJob.addFile(reportFile);
 
         //cooordinate sort bam file
@@ -197,12 +197,12 @@ public class WorkflowClient extends OicrWorkflow {
 
         // provision bam outputs
         SqwFile bamFile = createOutputFile(this.outputDir + this.expectedOutputBam.replace(".bam", ".sorted.bam"), BAM_METATYPE, this.manualOutput);
-        bamFile.getAnnotations().put("deduplicated bam file ", "bismark ");
+        bamFile.getAnnotations().put("bam_from_aligner_bismark", "bismark ");
         parentJob.addFile(bamFile);
 
         // provision bai file
         SqwFile baiFile = createOutputFile(this.outputDir + this.expectedOutputBam.replace(".bam", ".sorted.bam.bai"), BAI_METATYPE, this.manualOutput);
-        baiFile.getAnnotations().put("deduplicated bam file ", "bismark ");
+        baiFile.getAnnotations().put("bai_from_aligner_bismark", "bismark ");
         parentJob.addFile(baiFile);
     }
 
